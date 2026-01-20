@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字转 Markdown 工具</title>
+    <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+    <script src="https://unpkg.com/turndown-plugin-gfm/dist/turndown-plugin-gfm.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-tab {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .mode-tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .mode-tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd6;
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .panel-body {
+            padding: 0;
+        }
+
+        /* 富文本输入区域 */
+        .rich-input {
+            min-height: 400px;
+            padding: 20px;
+            outline: none;
+            font-size: 1rem;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        .rich-input:empty:before {
+            content: attr(data-placeholder);
+            color: #adb5bd;
+        }
+
+        .rich-input:focus {
+            background: #fafbfc;
+        }
+
+        /* HTML 输入区域 */
+        .html-input {
+            width: 100%;
+            min-height: 400px;
+            max-height: 500px;
+            padding: 20px;
+            border: none;
+            outline: none;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            resize: none;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .html-input::placeholder {
+            color: #6a6a6a;
+        }
+
+        /* Markdown 输出区域 */
+        .markdown-output {
+            width: 100%;
+            min-height: 400px;
+            max-height: 500px;
+            padding: 20px;
+            border: none;
+            outline: none;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            resize: none;
+            background: #fafbfc;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* 选项设置 */
+        .options {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .option-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .option-item select {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            font-size: 0.85rem;
+        }
+
+        /* 拖拽提示 */
+        .drop-hint {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(102, 126, 234, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .drop-hint.show {
+            opacity: 1;
+        }
+
+        .input-panel {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>文字转 Markdown 工具</h1>
+        <p class="subtitle">支持从 Google Docs 粘贴富文本，或直接输入 HTML 代码</p>
+
+        <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="rich">富文本粘贴</button>
+            <button class="mode-tab" data-mode="html">HTML 代码</button>
+            <button class="mode-tab" data-mode="debug">查看原始 HTML</button>
+        </div>
+
+        <div class="options">
+            <label class="option-item">
+                <input type="checkbox" id="opt-gfm" checked>
+                GitHub 风格 (GFM)
+            </label>
+            <label class="option-item">
+                <input type="checkbox" id="opt-code-fence" checked>
+                代码块使用围栏
+            </label>
+            <label class="option-item">
+                标题风格:
+                <select id="opt-heading">
+                    <option value="atx">ATX (# 标题)</option>
+                    <option value="setext">Setext (下划线)</option>
+                </select>
+            </label>
+            <label class="option-item">
+                列表符号:
+                <select id="opt-bullet">
+                    <option value="-">- (短横线)</option>
+                    <option value="*">* (星号)</option>
+                    <option value="+">+ (加号)</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="main-content">
+            <div class="panel input-panel">
+                <div class="panel-header">
+                    <span class="panel-title" id="input-title">输入 (粘贴富文本)</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-secondary" id="btn-clear">清空</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div
+                        class="rich-input"
+                        id="rich-input"
+                        contenteditable="true"
+                        data-placeholder="从 Google Docs 或其他富文本编辑器粘贴内容..."
+                    ></div>
+                    <textarea
+                        class="html-input hidden"
+                        id="html-input"
+                        placeholder="在此输入或粘贴 HTML 代码..."
+                    ></textarea>
+                </div>
+                <div class="drop-hint" id="drop-hint">释放以粘贴内容</div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Markdown 输出</span>
+                    <div class="panel-actions">
+                        <button class="btn btn-success" id="btn-copy">复制结果</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <textarea
+                        class="markdown-output"
+                        id="markdown-output"
+                        placeholder="转换后的 Markdown 将显示在这里..."
+                    ></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // DOM 元素
+        const richInput = document.getElementById('rich-input');
+        const htmlInput = document.getElementById('html-input');
+        const markdownOutput = document.getElementById('markdown-output');
+        const modeTabs = document.querySelectorAll('.mode-tab');
+        const inputTitle = document.getElementById('input-title');
+        const btnClear = document.getElementById('btn-clear');
+        const btnCopy = document.getElementById('btn-copy');
+        const toast = document.getElementById('toast');
+        const dropHint = document.getElementById('drop-hint');
+
+        // 选项元素
+        const optGfm = document.getElementById('opt-gfm');
+        const optCodeFence = document.getElementById('opt-code-fence');
+        const optHeading = document.getElementById('opt-heading');
+        const optBullet = document.getElementById('opt-bullet');
+
+        let currentMode = 'rich';
+
+        // 图片计数器（只在清空时重置）
+        let imageCounter = 0;
+
+        // 创建 Turndown 实例
+        function createTurndownService() {
+            // 注意：不再在这里重置 imageCounter，因为粘贴图片时已经设置了索引
+
+            const options = {
+                headingStyle: optHeading.value,
+                bulletListMarker: optBullet.value,
+                codeBlockStyle: optCodeFence.checked ? 'fenced' : 'indented',
+                emDelimiter: '*',
+                strongDelimiter: '**',
+                linkStyle: 'inlined',
+            };
+
+            const turndownService = new TurndownService(options);
+
+            // 使用 GFM 插件（用于任务列表、删除线等，但不用其表格处理）
+            if (optGfm.checked && window.turndownPluginGfm) {
+                // 只使用 strikethrough 和 taskListItems
+                turndownService.use(turndownPluginGfm.strikethrough);
+                turndownService.use(turndownPluginGfm.taskListItems);
+            }
+
+            // 自定义表格处理规则 - 处理 Google Docs 表格
+            turndownService.addRule('googleDocsTable', {
+                filter: function(node) {
+                    return node.nodeName === 'TABLE';
+                },
+                replacement: function(content, node) {
+                    const rows = node.querySelectorAll('tr');
+                    if (rows.length === 0) return '';
+
+                    let markdown = '\n\n';
+                    let columnCount = 0;
+
+                    rows.forEach((row, rowIndex) => {
+                        const cells = row.querySelectorAll('td, th');
+                        if (cells.length === 0) return;
+
+                        // 获取列数（第一行决定）
+                        if (rowIndex === 0) {
+                            columnCount = cells.length;
+                        }
+
+                        // 构建行
+                        let rowContent = '|';
+                        cells.forEach(cell => {
+                            // 获取单元格文本，清理换行和多余空格
+                            let cellText = cell.textContent.trim()
+                                .replace(/\n/g, ' ')
+                                .replace(/\s+/g, ' ')
+                                .replace(/\|/g, '\\|'); // 转义管道符
+                            rowContent += ' ' + cellText + ' |';
+                        });
+                        markdown += rowContent + '\n';
+
+                        // 第一行后添加分隔符
+                        if (rowIndex === 0) {
+                            let separator = '|';
+                            for (let i = 0; i < columnCount; i++) {
+                                separator += ' --- |';
+                            }
+                            markdown += separator + '\n';
+                        }
+                    });
+
+                    return markdown + '\n';
+                }
+            });
+
+            // 处理我们自己插入的图片占位符标记
+            turndownService.addRule('imagePlaceholderMarker', {
+                filter: function(node) {
+                    return node.hasAttribute && node.hasAttribute('data-image-placeholder');
+                },
+                replacement: function(content, node) {
+                    const index = node.getAttribute('data-image-placeholder');
+                    const name = node.getAttribute('data-image-name') || '图片' + index;
+                    return '\n\n![' + name + '](IMAGE_PLACEHOLDER_' + index + ')\n\n';
+                }
+            });
+
+            // 处理图片 - 转换为 placeholder（增强版，支持多种图片格式）
+            turndownService.addRule('images', {
+                filter: function(node) {
+                    // 标准 img 标签
+                    if (node.nodeName === 'IMG') return true;
+                    // picture 元素中的 source
+                    if (node.nodeName === 'PICTURE') return true;
+                    return false;
+                },
+                replacement: function(content, node) {
+                    // 检查是否已有索引
+                    let index = node.getAttribute('data-image-index');
+                    if (!index) {
+                        imageCounter++;
+                        index = imageCounter;
+                    }
+
+                    let alt = '图片' + index;
+
+                    if (node.nodeName === 'IMG') {
+                        alt = node.getAttribute('alt') || alt;
+                    } else if (node.nodeName === 'PICTURE') {
+                        const img = node.querySelector('img');
+                        if (img) alt = img.getAttribute('alt') || alt;
+                    }
+
+                    return '\n\n![' + alt + '](IMAGE_PLACEHOLDER_' + index + ')\n\n';
+                }
+            });
+
+            // 处理 Google Docs 特殊的图片容器
+            // Google Docs 粘贴的图片通常被包裹在特殊结构中
+            turndownService.addRule('googleDocsImageContainer', {
+                filter: function(node) {
+                    // 检查是否包含 Google Docs 图片的各种特征
+                    if (node.nodeName === 'SPAN' || node.nodeName === 'DIV' || node.nodeName === 'P') {
+                        // 检查内部是否有图片
+                        const hasImg = node.querySelector('img');
+                        if (hasImg) {
+                            // 如果直接子元素只有一个 img，让 img 规则处理
+                            if (node.children.length === 1 && node.children[0].nodeName === 'IMG') {
+                                return false;
+                            }
+                            return true;
+                        }
+
+                        // 检查 style 中是否有 background-image
+                        const style = node.getAttribute('style') || '';
+                        if (style.includes('background-image') || style.includes('background:')) {
+                            return true;
+                        }
+
+                        // Google Docs 有时用 data-* 属性标记图片
+                        const attrs = node.attributes;
+                        for (let i = 0; i < attrs.length; i++) {
+                            const attrName = attrs[i].name.toLowerCase();
+                            if (attrName.startsWith('data-') &&
+                                (attrName.includes('image') || attrName.includes('src'))) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                },
+                replacement: function(content, node) {
+                    // 先检查内部有没有已经处理过的图片标记
+                    if (content.includes('IMAGE_PLACEHOLDER_') || content.includes('CHART_PLACEHOLDER_')) {
+                        return content;
+                    }
+
+                    imageCounter++;
+                    const innerImg = node.querySelector('img');
+                    const alt = innerImg ? (innerImg.getAttribute('alt') || '图片' + imageCounter) : '图片' + imageCounter;
+                    return '\n\n![' + alt + '](IMAGE_PLACEHOLDER_' + imageCounter + ')\n\n';
+                }
+            });
+
+            // 处理 SVG 图形
+            turndownService.addRule('svgImages', {
+                filter: 'svg',
+                replacement: function(content, node) {
+                    imageCounter++;
+                    return '\n\n![SVG图形' + imageCounter + '](SVG_PLACEHOLDER_' + imageCounter + ')\n\n';
+                }
+            });
+
+            // 处理 canvas 元素
+            turndownService.addRule('canvasImages', {
+                filter: 'canvas',
+                replacement: function(content, node) {
+                    imageCounter++;
+                    return '\n\n![Canvas图形' + imageCounter + '](CANVAS_PLACEHOLDER_' + imageCounter + ')\n\n';
+                }
+            });
+
+            // 处理 figure 元素（常见的图片容器）
+            turndownService.addRule('figureImages', {
+                filter: 'figure',
+                replacement: function(content, node) {
+                    // 如果已经有 placeholder，直接返回
+                    if (content.includes('PLACEHOLDER_')) {
+                        // 提取 figcaption 作为说明
+                        const figcaption = node.querySelector('figcaption');
+                        if (figcaption) {
+                            return content + '\n*' + figcaption.textContent.trim() + '*\n';
+                        }
+                        return content;
+                    }
+
+                    imageCounter++;
+                    const figcaption = node.querySelector('figcaption');
+                    const caption = figcaption ? figcaption.textContent.trim() : '';
+                    const alt = caption || '图片' + imageCounter;
+
+                    let result = '\n\n![' + alt + '](IMAGE_PLACEHOLDER_' + imageCounter + ')';
+                    if (caption) {
+                        result += '\n*' + caption + '*';
+                    }
+                    return result + '\n\n';
+                }
+            });
+
+            // 处理 object/embed 元素（嵌入内容）
+            turndownService.addRule('embeddedContent', {
+                filter: ['object', 'embed', 'iframe'],
+                replacement: function(content, node) {
+                    imageCounter++;
+                    const type = node.nodeName.toLowerCase();
+                    return '\n\n![嵌入内容' + imageCounter + '](EMBED_PLACEHOLDER_' + imageCounter + ')\n\n';
+                }
+            });
+
+            // 自定义规则：处理 Google Docs 的代码样式
+            turndownService.addRule('googleDocsCode', {
+                filter: function(node) {
+                    if (node.nodeName === 'SPAN') {
+                        const style = node.getAttribute('style') || '';
+                        const fontFamily = style.match(/font-family:\s*["']?([^;"']+)/i);
+                        if (fontFamily) {
+                            const font = fontFamily[1].toLowerCase();
+                            return font.includes('mono') ||
+                                   font.includes('courier') ||
+                                   font.includes('consolas') ||
+                                   font.includes('source code');
+                        }
+                    }
+                    return false;
+                },
+                replacement: function(content, node) {
+                    // 直接使用原始文本，避免转义问题
+                    const text = node.textContent || content;
+                    return '`' + text + '`';
+                }
+            });
+
+            // 处理 pre 和 code 标签
+            turndownService.addRule('codeBlocks', {
+                filter: ['pre'],
+                replacement: function(content, node) {
+                    const language = node.getAttribute('data-language') ||
+                                   node.className.match(/language-(\w+)/)?.[1] || '';
+                    // 直接使用 textContent 避免转义问题
+                    const code = node.textContent || '';
+                    if (optCodeFence.checked) {
+                        return '\n\n```' + language + '\n' + code.trim() + '\n```\n\n';
+                    } else {
+                        return '\n\n    ' + code.trim().replace(/\n/g, '\n    ') + '\n\n';
+                    }
+                }
+            });
+
+            // 处理 code 标签（内联代码）
+            turndownService.addRule('inlineCode', {
+                filter: function(node) {
+                    return node.nodeName === 'CODE' &&
+                           node.parentNode &&
+                           node.parentNode.nodeName !== 'PRE';
+                },
+                replacement: function(content, node) {
+                    // 直接使用 textContent
+                    return '`' + node.textContent + '`';
+                }
+            });
+
+            // 处理高亮/背景色文本（可能是代码）
+            turndownService.addRule('highlightedCode', {
+                filter: function(node) {
+                    if (node.nodeName === 'SPAN' || node.nodeName === 'MARK') {
+                        const style = node.getAttribute('style') || '';
+                        return style.includes('background-color') &&
+                               (style.includes('#f') || style.includes('rgb(24'));
+                    }
+                    return false;
+                },
+                replacement: function(content, node) {
+                    const text = node.textContent || content;
+                    if (text.includes('\n')) {
+                        return '\n```\n' + text + '\n```\n';
+                    }
+                    return '`' + text + '`';
+                }
+            });
+
+            // 移除空的 span 标签
+            turndownService.addRule('emptySpan', {
+                filter: function(node) {
+                    return node.nodeName === 'SPAN' && !node.textContent.trim();
+                },
+                replacement: function() {
+                    return '';
+                }
+            });
+
+            // 禁用默认的转义规则中对反引号的处理
+            turndownService.escape = function(string) {
+                return string
+                    .replace(/\[/g, '\\[')
+                    .replace(/\]/g, '\\]');
+                    // 不再转义反引号和其他字符
+            };
+
+            return turndownService;
+        }
+
+        // 预处理 HTML，标记所有图片相关元素
+        function preprocessHtml(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            let imgIndex = 0;
+
+            // 查找所有可能的图片元素并添加标记
+            const selectors = [
+                'img',
+                'svg',
+                'canvas',
+                'picture',
+                'figure',
+                '[style*="background-image"]',
+                '[style*="background:"]'
+            ];
+
+            selectors.forEach(selector => {
+                try {
+                    doc.querySelectorAll(selector).forEach(el => {
+                        if (!el.hasAttribute('data-md-image-marked')) {
+                            el.setAttribute('data-md-image-marked', 'true');
+                            el.setAttribute('data-md-image-index', ++imgIndex);
+                        }
+                    });
+                } catch (e) {
+                    // 忽略无效选择器错误
+                }
+            });
+
+            return doc.body.innerHTML;
+        }
+
+        // 转换函数
+        function convert() {
+            let html = '';
+
+            if (currentMode === 'rich' || currentMode === 'debug') {
+                html = richInput.innerHTML;
+            } else {
+                html = htmlInput.value;
+            }
+
+            if (!html.trim()) {
+                markdownOutput.value = '';
+                return;
+            }
+
+            // Debug 模式：显示原始 HTML
+            if (currentMode === 'debug') {
+                // 格式化 HTML 以便查看
+                const formatted = html
+                    .replace(/></g, '>\n<')
+                    .replace(/(<[^>]+>)/g, function(match) {
+                        return match;
+                    });
+                markdownOutput.value = '=== 原始 HTML ===\n\n' + formatted + '\n\n=== 检测到的图片元素 ===\n' + detectImages(html);
+                return;
+            }
+
+            try {
+                // 预处理 HTML
+                const processedHtml = preprocessHtml(html);
+
+                const turndownService = createTurndownService();
+                let markdown = turndownService.turndown(processedHtml);
+
+                // 清理多余的反斜杠转义（特别是代码块中的）
+                markdown = markdown
+                    // 修复代码块中的转义反引号 \` -> `
+                    .replace(/\\`/g, '`')
+                    // 修复转义的反斜杠
+                    .replace(/\\\\/g, '\\')
+                    // 修复转义的星号（在代码块内不需要转义）
+                    .replace(/\\\*/g, '*')
+                    // 修复转义的下划线
+                    .replace(/\\_/g, '_')
+                    // 清理多余的空行
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+
+                markdownOutput.value = markdown;
+            } catch (error) {
+                console.error('转换错误:', error);
+                markdownOutput.value = '转换出错: ' + error.message;
+            }
+        }
+
+        // 检测 HTML 中的图片元素（用于调试）
+        function detectImages(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            let result = [];
+
+            // 检测各类图片元素
+            const imgs = doc.querySelectorAll('img');
+            if (imgs.length > 0) {
+                result.push(`发现 ${imgs.length} 个 <img> 标签`);
+                imgs.forEach((img, i) => {
+                    const src = img.getAttribute('src') || '';
+                    const srcPreview = src.length > 100 ? src.substring(0, 100) + '...' : src;
+                    result.push(`  [${i+1}] src: ${srcPreview}`);
+                });
+            }
+
+            const svgs = doc.querySelectorAll('svg');
+            if (svgs.length > 0) {
+                result.push(`发现 ${svgs.length} 个 <svg> 元素`);
+            }
+
+            const bgImages = doc.querySelectorAll('[style*="background-image"], [style*="background:"]');
+            if (bgImages.length > 0) {
+                result.push(`发现 ${bgImages.length} 个带背景图的元素`);
+            }
+
+            const figures = doc.querySelectorAll('figure');
+            if (figures.length > 0) {
+                result.push(`发现 ${figures.length} 个 <figure> 元素`);
+            }
+
+            if (result.length === 0) {
+                result.push('未检测到任何图片元素');
+                result.push('');
+                result.push('提示：Google Docs 的图片可能没有被复制。');
+                result.push('建议：先将图片上传到图床，再手动添加图片链接。');
+            }
+
+            return result.join('\n');
+        }
+
+        // 显示 Toast
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // 切换模式
+        modeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                modeTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentMode = tab.dataset.mode;
+
+                if (currentMode === 'rich') {
+                    richInput.classList.remove('hidden');
+                    htmlInput.classList.add('hidden');
+                    inputTitle.textContent = '输入 (粘贴富文本)';
+                } else if (currentMode === 'html') {
+                    richInput.classList.add('hidden');
+                    htmlInput.classList.remove('hidden');
+                    inputTitle.textContent = '输入 (HTML 代码)';
+                } else if (currentMode === 'debug') {
+                    richInput.classList.remove('hidden');
+                    htmlInput.classList.add('hidden');
+                    inputTitle.textContent = '输入 (调试模式 - 查看原始 HTML)';
+                }
+
+                convert();
+            });
+        });
+
+        // 富文本输入事件
+        richInput.addEventListener('input', () => {
+            convert();
+        });
+
+        richInput.addEventListener('paste', (e) => {
+            const clipboardData = e.clipboardData || window.clipboardData;
+
+            // 检查是否有图片文件
+            const items = clipboardData.items;
+            let hasImageFile = false;
+
+            if (items) {
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        hasImageFile = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasImageFile) {
+                // 阻止默认粘贴行为
+                e.preventDefault();
+
+                // 处理所有图片
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        imageCounter++;
+                        const file = items[i].getAsFile();
+                        const imgName = file.name || '图片' + imageCounter;
+
+                        // 创建一个带有 data-placeholder 属性的图片标记
+                        const placeholder = document.createElement('div');
+                        placeholder.setAttribute('data-image-placeholder', imageCounter);
+                        placeholder.setAttribute('data-image-name', imgName);
+                        placeholder.className = 'image-placeholder-marker';
+                        placeholder.textContent = `[图片: ${imgName}]`;
+                        placeholder.style.cssText = 'background:#e3f2fd;padding:8px 12px;margin:8px 0;border-radius:4px;border:1px dashed #2196f3;color:#1565c0;font-size:14px;';
+
+                        // 插入占位符
+                        const selection = window.getSelection();
+                        if (selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            range.deleteContents();
+                            range.insertNode(placeholder);
+                            range.setStartAfter(placeholder);
+                            range.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        } else {
+                            richInput.appendChild(placeholder);
+                        }
+                    }
+                }
+
+                setTimeout(convert, 0);
+            } else {
+                // 没有图片文件，让默认的粘贴行为发生
+                setTimeout(() => {
+                    // 粘贴后检查是否有 img 标签并添加标记
+                    const imgs = richInput.querySelectorAll('img:not([data-processed])');
+                    imgs.forEach(img => {
+                        imageCounter++;
+                        img.setAttribute('data-processed', 'true');
+                        img.setAttribute('data-image-index', imageCounter);
+
+                        // 如果图片是 base64 或 blob，添加视觉标记
+                        const src = img.getAttribute('src') || '';
+                        if (src.startsWith('data:') || src.startsWith('blob:')) {
+                            img.style.outline = '2px solid #2196f3';
+                            img.title = '图片' + imageCounter + ' (将转换为占位符)';
+                        }
+                    });
+                    convert();
+                }, 100);
+            }
+        });
+
+        // HTML 输入事件
+        htmlInput.addEventListener('input', convert);
+
+        // 清空按钮
+        btnClear.addEventListener('click', () => {
+            if (currentMode === 'rich' || currentMode === 'debug') {
+                richInput.innerHTML = '';
+            } else {
+                htmlInput.value = '';
+            }
+            markdownOutput.value = '';
+            imageCounter = 0; // 重置图片计数器
+        });
+
+        // 复制按钮
+        btnCopy.addEventListener('click', async () => {
+            const text = markdownOutput.value;
+            if (!text) {
+                showToast('没有可复制的内容');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('已复制到剪贴板!');
+            } catch (err) {
+                // 降级方案
+                markdownOutput.select();
+                document.execCommand('copy');
+                showToast('已复制到剪贴板!');
+            }
+        });
+
+        // 选项变化时重新转换
+        [optGfm, optCodeFence, optHeading, optBullet].forEach(opt => {
+            opt.addEventListener('change', convert);
+        });
+
+        // 拖拽支持
+        const inputPanel = document.querySelector('.input-panel');
+
+        inputPanel.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropHint.classList.add('show');
+        });
+
+        inputPanel.addEventListener('dragleave', () => {
+            dropHint.classList.remove('show');
+        });
+
+        inputPanel.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropHint.classList.remove('show');
+
+            const html = e.dataTransfer.getData('text/html');
+            const text = e.dataTransfer.getData('text/plain');
+
+            if (html) {
+                if (currentMode === 'rich') {
+                    richInput.innerHTML = html;
+                } else {
+                    htmlInput.value = html;
+                }
+            } else if (text) {
+                if (currentMode === 'rich') {
+                    richInput.textContent = text;
+                } else {
+                    htmlInput.value = text;
+                }
+            }
+
+            convert();
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + Shift + C: 复制结果
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+                e.preventDefault();
+                btnCopy.click();
+            }
+        });
+    </script>
+</body>
+</html>
