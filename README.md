@@ -2,7 +2,7 @@
 
 This repo lists some useful marketing tools. 
 
-<https://septemberfd.github.io/-marketing_tools/doc_to_markdown_tool.html>  
+<https://septemberfd.github.io/marketing_tools>  
 
 ## Features
 
